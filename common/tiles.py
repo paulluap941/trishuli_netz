@@ -171,36 +171,3 @@ def write_index(index, path=None):
 def read_index(path=None):
     path = path or config.ARCHIVE / "index.json"
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def check_archive(index=None, out_dir=None):
-    """
-    Did the tiling actually work. Returns a list of complaints, empty is good.
-    Worth running once, a silently half written archive would be painful later.
-    """
-    index = index if index is not None else read_index()
-    out_dir = out_dir or config.ARCHIVE
-    problems = []
-
-    for t in index:
-        for suffix in ("", "_masks", "_corridor"):
-            f = out_dir / f"{t['name']}{suffix}.tif"
-            if not f.exists():
-                problems.append(f"missing: {f.name}")
-            elif f.stat().st_size == 0:
-                problems.append(f"empty: {f.name}")
-
-    for scene in {t["scene"] for t in index}:
-        tiled = sum(t["n_inner"] for t in index if t["scene"] == scene)
-        mapped = len(geo.load_outlines(scene, min_d=config.MIN_TRAINING))
-        if tiled > mapped:
-            problems.append(f"{scene}: {tiled} tiled but only {mapped} mapped")
-        elif tiled < mapped * 0.9:
-            problems.append(f"{scene}: only {tiled} of {mapped} boulders landed "
-                            f"in an inner region ({tiled / mapped:.0%})")
-
-    for t in index:
-        if t["n_labels"] and t["n_inner"] > t["n_labels"]:
-            problems.append(f"{t['name']}: {t['n_inner']} inner > {t['n_labels']} burnt")
-
-    return problems
