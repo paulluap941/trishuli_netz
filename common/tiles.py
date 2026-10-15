@@ -92,7 +92,7 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
     res = res or config.RES
     tile = tile or config.TILE
     overlap = overlap or config.OVERLAP
-    min_d = min_d or config.MIN_TRAINING
+    min_d = min_d or config.MIN_DIAMETER
     out_dir.mkdir(parents=True, exist_ok=True)
 
     img = config.image(scene)

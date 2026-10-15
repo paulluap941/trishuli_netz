@@ -74,8 +74,9 @@ MIN_CORRIDOR = 0.05
 
 PERCENTILE = (2, 98)     # applied per crop on load, not baked into the tiles
 
-MIN_DIAMETER = 3.5       # evaluation limit
-MIN_TRAINING = 3.0       # kept in training, filtered out when scoring
+# One threshold for everything. Anything smaller is dropped before tiling,
+# so it never shows up as a label and never gets scored either.
+MIN_DIAMETER = 3.5
 
 
 # Cuts are absolute kilometres so the same stretch of river is training or
