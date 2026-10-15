@@ -118,3 +118,18 @@ def outlines(scene: str) -> Path:
 def make_dirs() -> None:
     for p in (ARCHIVE, MODELS, RESULTS, LOGS):
         p.mkdir(parents=True, exist_ok=True)
+
+
+def check_paths() -> None:
+    """fail early and clearly if the source data is not where we think"""
+    if not RAW.exists():
+        raise FileNotFoundError(
+            f"source data not found at {RAW}\n"
+            f"set it with:  export TRISHULI_RAW=/your/path\n"
+            f"(windows:     set TRISHULI_RAW=C:\\your\\path)\n"
+            f"or edit the defaults at the top of config.py")
+    missing = [p.name for p in
+               [VALLEY_AXIS, MASKS, OUTLINES] + [image(s) for s in SCENES]
+               if not p.exists()]
+    if missing:
+        raise FileNotFoundError(f"missing under {RAW}: {', '.join(missing)}")

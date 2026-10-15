@@ -126,8 +126,12 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
             w.write(a.astype(np.uint16), 1)
         with rasterio.open(out_dir / f"{name}_masks.tif", "w", dtype="uint16", **prof) as w:
             w.write(lab, 1)
+        # valid = inside the corridor OR belonging to a labelled boulder.
+        # the second part means a boulder straddling the corridor edge is
+        # never partly ignored - nothing is ever cut off.
         mask = rasterize([(corr.intersection(bx), 1)], out_shape=(tile, tile),
                          transform=tr, fill=0, dtype=np.uint8)
+        mask |= (lab > 0).astype(np.uint8)
         with rasterio.open(out_dir / f"{name}_corridor.tif", "w", dtype="uint8", **prof) as w:
             w.write(mask, 1)
 
