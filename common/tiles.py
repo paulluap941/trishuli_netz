@@ -1,22 +1,22 @@
 """
 Tile and label generation.
 
-Each scene is tiled in ITS OWN coordinate system. The images are never warped
-onto a common grid - only resampled to the target resolution. That way the
-labels sit exactly where they were drawn, and we interpolate once instead of
-twice. The only thing moved between systems is the corridor polygon.
+Each scene is tiled in its own coordinate system. Images are resampled to the
+target resolution but never warped onto a common grid, so labels sit exactly
+where they were drawn and the data is interpolated once instead of twice. Only
+the corridor polygon is moved between systems.
 
 Per tile we write:
     <scene>_<col>_<row>.tif           image, uint16, raw values
     <scene>_<col>_<row>_masks.tif     label raster, uint16, one id per boulder
     <scene>_<col>_<row>_corridor.tif  uint8, 1 where the corridor was inspected
 
-The corridor mask matters: only ~35 % of a tile lies inside the mapped strip.
-Everything outside was never looked at, so it is neither labelled nor a valid
-negative. Training must restrict crops to the corridor.
+About a third of a tile falls inside the mapped strip. The rest was never
+inspected, so it is neither labelled nor a valid negative, and training has to
+restrict crops to the corridor.
 
-Normalisation is NOT baked in - it happens when loading, so it stays a model
-parameter and can be applied identically to Vantor later.
+Normalisation is applied on load, not baked in, so it stays a model parameter
+and can be reproduced on new scenes.
 """
 import json
 import numpy as np
