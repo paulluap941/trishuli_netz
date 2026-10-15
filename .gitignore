@@ -1,0 +1,42 @@
+# --- data: none of this belongs in the repo ---
+*.tif
+*.tiff
+*.gpkg
+*.shp
+*.dbf
+*.shx
+*.prj
+*.aux.xml
+*.ovr
+archive/
+data/
+trishuli_netz_data/
+
+# --- models and checkpoints ---
+*.pth
+*.pt
+*.ckpt
+*.npy
+models/
+
+# --- outputs ---
+results/*.png
+results/*.gpkg
+results/*.tif
+logs/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# --- jupyter ---
+.ipynb_checkpoints/
+
+# --- editors / os ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

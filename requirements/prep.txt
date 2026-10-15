@@ -1,0 +1,8 @@
+# data preparation - runs locally, no torch
+numpy
+rasterio
+geopandas
+shapely
+pyproj
+matplotlib
+tifffile

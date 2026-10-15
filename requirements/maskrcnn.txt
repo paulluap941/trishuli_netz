@@ -1,0 +1,7 @@
+# Mask R-CNN / BoulderNet - separate env, detectron2 conflicts with cellpose 4.x
+-r prep.txt
+torch==2.6.0
+torchvision==0.21.0
+# detectron2 is not on the pip index, see README
+jupyterlab
+ipykernel

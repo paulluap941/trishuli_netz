@@ -1,0 +1,8 @@
+# classic Cellpose (U-Net) / ImageGrains 1.0 - separate env,
+# cellpose 2.x and 4.x cannot coexist
+-r prep.txt
+torch==2.6.0
+torchvision==0.21.0
+cellpose==2.3.2
+jupyterlab
+ipykernel
