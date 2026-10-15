@@ -33,10 +33,9 @@ VALLEY_AXIS = RAW / "talachse.gpkg"
 CRS = "EPSG:32645"
 
 
-# pan band, not pansharpened. correlation between the two, three spots per
-# scene: mar 0.90-0.95, feb 0.87-0.92, nov 0.59-0.70. november's
-# pansharpening does something different and the net would have to learn it.
-# the ms files stay for a second luminance version, Vantor is RGB only.
+# pan band, not pansharpened. correlation pan/pansharpened, three spots per
+# scene: mar 0.90-0.95, feb 0.87-0.92, nov 0.59-0.70.
+# ms files stay for a second luminance version, Vantor is RGB only.
 SCENES = {
     "mar": {"pan": "03Mar2025_epsg32645.tif", "ms": "03Mar2025_pan_ms.tif",
             "res": 0.3271, "date": "2025-03-03"},
@@ -54,19 +53,17 @@ VANTOR = {
 }
 
 
-# All scenes go onto one ground resolution, otherwise the 3.5 m limit is a
-# different number of pixels in each (7.5 / 10.7 / 10.0 px) and the net gets
-# contradictory targets. 0.125 because at 0.25 a median boulder covers only
-# 4.6 cells on P2 and sits below the smallest default anchor.
+# one ground resolution for all scenes, otherwise 3.5 m is 7.5 / 10.7 / 10.0 px
+# depending on the scene. at 0.25 a median boulder covers 4.6 cells on P2 and
+# sits below the smallest default anchor, at 0.125 it is 9.3 cells.
 RES = 0.125
 TILE = 1024          # 128 m
 OVERLAP = 256        # 32 m
 INNER = TILE - OVERLAP
 
-# The corridor is 26 km long and about 90 m wide, so square tiles cover it
-# badly. At 1024 px roughly 35 % of a tile is inside it, at 2048 only 22 %.
-# Everything outside was never looked at, so it is not a valid negative.
-# Tiles that barely touch the strip are skipped.
+# corridor is 26 km long and about 90 m wide, so square tiles fit it badly:
+# 35 % of a 1024 px tile is inside it, 22 % of a 2048 px one. outside is
+# uninspected, not background. tiles below this share are skipped.
 MIN_CORRIDOR = 0.05
 
 # ring around each outline that also counts as inspected, for boulders that
@@ -75,14 +72,13 @@ LABEL_BUFFER = 5.0
 
 PERCENTILE = (2, 98)     # applied per crop on load, not baked into the tiles
 
-# One threshold for everything. Anything smaller is dropped before tiling,
-# so it never shows up as a label and never gets scored either.
+# dropped before tiling, so never a label and never scored
 MIN_DIAMETER = 3.5
 
 
-# Cuts are absolute kilometres so the same stretch of river is training or
-# validation in every scene. Doing it per scene would hit different ground,
-# the reaches differ by several km (mar stops at 24.7, feb starts at 7.7).
+# absolute kilometres, so a stretch of river is training or validation in all
+# three scenes. per scene it would hit different ground, the reaches differ by
+# several km (mar stops at 24.7, feb starts at 7.7).
 TEST_FROM, TEST_TO = 20.9, 24.8
 FOLD_EDGES = [7.5, 11.8, 15.0, 18.1, 20.9]
 ALWAYS_TRAIN = [(0.0, 7.5), (24.8, 26.2)]

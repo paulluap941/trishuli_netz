@@ -99,8 +99,7 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
     corr = corridor_in_scene(scene)
     prepare(corr)
 
-    # same mask for both. filtered separately they lose different rows, the
-    # transform shifts areas enough to move a boulder across the threshold.
+    # one mask for both, the transform moves areas across the threshold
     own = geo.load_outlines(scene)
     nov = geo.load_outlines(scene, nov=True)
     assert len(own) == len(nov), f"{scene}: the two outline files are out of sync"
@@ -131,8 +130,7 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
         labels = burn(((g, i) for i, g in enumerate(hit.geometry.values, start=1)),
                       b, tile, res) if len(hit) else np.zeros((tile, tile), np.uint16)
 
-        # corridor plus a ring around each outline. masked off where the
-        # image has no data, black is not background.
+        # corridor plus a ring around each outline, only where there is image data
         known = [(corr.intersection(bx), 1)]
         if len(hit):
             known += [(g.buffer(config.LABEL_BUFFER), 1) for g in hit.geometry.values]
