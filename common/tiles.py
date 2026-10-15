@@ -99,9 +99,8 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
     corr = corridor_in_scene(scene)
     prepare(corr)
 
-    # load both unfiltered, then cut with the same mask. filtering each file
-    # on its own drops different rows, the transform changes areas slightly
-    # and a boulder right at 3.5 m falls on either side.
+    # same mask for both. filtered separately they lose different rows, the
+    # transform shifts areas enough to move a boulder across the threshold.
     own = geo.load_outlines(scene)
     nov = geo.load_outlines(scene, nov=True)
     assert len(own) == len(nov), f"{scene}: the two outline files are out of sync"
@@ -132,10 +131,8 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
         labels = burn(((g, i) for i, g in enumerate(hit.geometry.values, start=1)),
                       b, tile, res) if len(hit) else np.zeros((tile, tile), np.uint16)
 
-        # valid = corridor, plus a ring around every outline so boulders on
-        # or past the edge come with some context. anything with no image
-        # data is never valid, otherwise the net learns that black is
-        # background.
+        # corridor plus a ring around each outline. masked off where the
+        # image has no data, black is not background.
         known = [(corr.intersection(bx), 1)]
         if len(hit):
             known += [(g.buffer(config.LABEL_BUFFER), 1) for g in hit.geometry.values]
@@ -147,9 +144,7 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
         write_raster(out_dir / f"{name}_masks.tif", labels, b, res)
         write_raster(out_dir / f"{name}_corridor.tif", mask, b, res)
 
-        # fold of the tile: whatever most of its boulders say. empty tiles fall
-        # back to the station of their centre, good enough since there is
-        # nothing in them that could leak.
+        # majority of the boulders inside, empty tiles go by their centre
         inner = box(b[0] + half, b[1] + half, b[2] - half, b[3] - half)
         sel = inside(own, inner)
         if len(sel):

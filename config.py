@@ -33,13 +33,10 @@ VALLEY_AXIS = RAW / "talachse.gpkg"
 CRS = "EPSG:32645"
 
 
-# I use the panchromatic band, not the pansharpened one. Checked the
-# correlation between the two over three spots per scene:
-#   mar 0.90-0.95, feb 0.87-0.92, nov 0.59-0.70
-# November's pansharpening clearly does something different, and since the
-# net sees all three scenes it should not have to learn that. The ms files
-# are only kept around to build a second luminance version for augmentation,
-# because Vantor is RGB and has no pan band.
+# pan band, not pansharpened. correlation between the two, three spots per
+# scene: mar 0.90-0.95, feb 0.87-0.92, nov 0.59-0.70. november's
+# pansharpening does something different and the net would have to learn it.
+# the ms files stay for a second luminance version, Vantor is RGB only.
 SCENES = {
     "mar": {"pan": "03Mar2025_epsg32645.tif", "ms": "03Mar2025_pan_ms.tif",
             "res": 0.3271, "date": "2025-03-03"},
@@ -72,10 +69,8 @@ INNER = TILE - OVERLAP
 # Tiles that barely touch the strip are skipped.
 MIN_CORRIDOR = 0.05
 
-# Boulders I outlined outside the corridor still count, together with a ring
-# around them. I looked at those spots, so a few metres of surroundings are
-# known background too. Without the ring a stray boulder sits in a field of
-# "unknown" and the supervision makes no sense.
+# ring around each outline that also counts as inspected, for boulders that
+# sit on or past the corridor edge
 LABEL_BUFFER = 5.0
 
 PERCENTILE = (2, 98)     # applied per crop on load, not baked into the tiles
@@ -122,7 +117,6 @@ def make_dirs():
 
 
 def check_paths():
-    # worth doing, otherwise you get a confusing rasterio error twenty cells in
     if not RAW.exists():
         raise FileNotFoundError(
             f"no source data at {RAW}\n"
