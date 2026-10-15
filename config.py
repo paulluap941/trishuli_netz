@@ -104,9 +104,9 @@ def corridor(scene):
     return MASKS / f"korridor_{scene}.gpkg"
 
 
-def outlines(scene):
-    """outlines in november coordinates, needed for the station along the axis"""
-    return OUTLINES / f"{scene}_bloecke_nov.gpkg"
+def outlines(scene, nov=False):
+    """nov=False is the scene's own system, nov=True is november's"""
+    return OUTLINES / (f"{scene}_bloecke_nov.gpkg" if nov else f"{scene}_bloecke.gpkg")
 
 
 def make_dirs():
