@@ -99,9 +99,16 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
     corr = corridor_in_scene(scene)
     prepare(corr)
 
-    own = geo.load_outlines(scene, min_d=min_d)
-    nov = geo.load_outlines(scene, nov=True, min_d=min_d)
+    # load both unfiltered, then cut with the same mask. filtering each file
+    # on its own drops different rows, the transform changes areas slightly
+    # and a boulder right at 3.5 m falls on either side.
+    own = geo.load_outlines(scene)
+    nov = geo.load_outlines(scene, nov=True)
     assert len(own) == len(nov), f"{scene}: the two outline files are out of sync"
+
+    keep = own.d_m >= min_d
+    own = own[keep].reset_index(drop=True)
+    nov = nov[keep].reset_index(drop=True)
     own["fold"] = folds.label(folds.station_km(nov.geometry))
     own.sindex
 
@@ -118,16 +125,22 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None, min_d=No
             continue
 
         image = read_window(img, b, tile)
-        if (image > 0).mean() < 0.5:
-            continue                      # mostly outside the image footprint
+        if (image > 0).mean() < 0.9:
+            continue                      # too much of it is past the image edge
 
         hit = own.iloc[list(own.sindex.query(bx, predicate="intersects"))]
         labels = burn(((g, i) for i, g in enumerate(hit.geometry.values, start=1)),
                       b, tile, res) if len(hit) else np.zeros((tile, tile), np.uint16)
 
-        mask = burn([(corr.intersection(bx), 1)], b, tile, res, dtype=np.uint8)
-        # a boulder sitting on the corridor edge would otherwise be half ignored
-        mask |= (labels > 0).astype(np.uint8)
+        # valid = corridor, plus a ring around every outline so boulders on
+        # or past the edge come with some context. anything with no image
+        # data is never valid, otherwise the net learns that black is
+        # background.
+        known = [(corr.intersection(bx), 1)]
+        if len(hit):
+            known += [(g.buffer(config.LABEL_BUFFER), 1) for g in hit.geometry.values]
+        mask = burn(known, b, tile, res, dtype=np.uint8)
+        mask &= (image > 0).astype(np.uint8)
 
         name = f"{scene}_{col:03d}_{row:03d}"
         write_raster(out_dir / f"{name}.tif", image.astype(np.uint16), b, res)

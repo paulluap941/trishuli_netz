@@ -72,6 +72,12 @@ INNER = TILE - OVERLAP
 # Tiles that barely touch the strip are skipped.
 MIN_CORRIDOR = 0.05
 
+# Boulders I outlined outside the corridor still count, together with a ring
+# around them. I looked at those spots, so a few metres of surroundings are
+# known background too. Without the ring a stray boulder sits in a field of
+# "unknown" and the supervision makes no sense.
+LABEL_BUFFER = 5.0
+
 PERCENTILE = (2, 98)     # applied per crop on load, not baked into the tiles
 
 # One threshold for everything. Anything smaller is dropped before tiling,
