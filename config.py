@@ -62,9 +62,15 @@ VANTOR = {
 # --- raster -----------------------------------------------------------
 
 RES = 0.125                  # m/px, common grid for all scenes
-TILE = 2048                  # px = 256 m
-OVERLAP = 512                # px = 64 m
-INNER = TILE - OVERLAP       # 1536 px = 192 m, only centroids in here count
+TILE = 1024                  # px = 128 m
+OVERLAP = 256                # px = 32 m
+INNER = TILE - OVERLAP       # 768 px = 96 m, only centroids in here count
+
+# the corridor is a 26 km long, ~90 m wide strip, so square tiles cover it
+# poorly - only ~35 % of a tile is inside it. everything outside was never
+# inspected, so it is not a valid negative. each tile therefore carries a
+# corridor mask, and tiles below this fraction are skipped entirely.
+MIN_CORRIDOR = 0.05
 
 PERCENTILE = (2, 98)         # per-crop normalisation, applied on load
 
@@ -85,8 +91,8 @@ ALWAYS_TRAIN = [(0.0, 7.5), (24.8, 26.2)]
 
 MODEL = {
     "cellpose_sam":  {"res": 0.125, "crop": 512,  "batch": 1},
-    "maskrcnn":      {"res": 0.125, "crop": 1024, "batch": 4},
-    "cellpose_unet": {"res": 0.25,  "crop": 768,  "batch": 8},
+    "maskrcnn":      {"res": 0.125, "crop": 1024, "batch": 4},   # = whole tile
+    "cellpose_unet": {"res": 0.25,  "crop": 512,  "batch": 8},   # tile downsampled
 }
 
 # --- server -----------------------------------------------------------
