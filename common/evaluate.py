@@ -124,6 +124,7 @@ def summarise(scores):
     for name, arr in (("pred", allp), ("true", allt)):
         out[f"d50_{name}"] = float(np.median(arr)) if len(arr) else 0.0
         out[f"d84_{name}"] = float(np.percentile(arr, 84)) if len(arr) else 0.0
+        out[f"d_{name}"] = [round(float(x), 3) for x in arr]
     if tp:
         out["size_bias"] = float(np.median(dp - dt))
         out["size_mae"] = float(np.median(np.abs(dp - dt)))
