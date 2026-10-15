@@ -1,42 +1,44 @@
 # trishuli_netz
 
-Instance segmentation of boulders in sub-metre satellite imagery of the Trishuli
-valley, Nepal, before and after the July 2025 flood.
+Finding and measuring boulders in sub-metre satellite imagery of the Trishuli
+valley in Nepal, before and after the July 2025 flood.
 
-## Background
+## Why
 
-3597 boulders were mapped by hand across three scenes using point prompts in SAM.
-The automatic OrthoSAM run reached precision 0.16, because the boulders are
-7.5 to 11 px across while the published detection limit is 30 px
-(Chan, Rheinwalt & Bookhagen 2026).
+I mapped 3597 boulders by hand across three scenes, using point prompts in SAM.
+Running OrthoSAM fully automatically only got precision 0.16, which turned out
+not to be my fault: the boulders are 7.5 to 11 px across and the published
+detection limit is 30 px (Chan, Rheinwalt & Bookhagen 2026). So the tool was
+being used an order of magnitude below what it was validated for.
 
-This repo fine-tunes networks on that actual object size, so the next scene does
-not have to be mapped by hand.
+The idea here is to fine-tune networks on the size the boulders actually are,
+so the next scene does not have to be clicked through by hand.
 
 ## Data
 
 | Scene | Date | Resolution | Corridor | Outlines |
 |-------|------|-----------:|---------:|---------:|
-| mar | March 2025, pre-flood | 0.327 m/px | 2.22 km² | 1195 |
-| nov | November 2025, post-flood | 0.466 m/px | 2.33 km² | 1182 |
-| feb | February 2026, +1 year | 0.352 m/px | 2.32 km² | 791 |
+| mar | March 2025, before the flood | 0.327 m/px | 2.22 km² | 1195 |
+| nov | November 2025, after | 0.466 m/px | 2.33 km² | 1182 |
+| feb | February 2026, a year later | 0.352 m/px | 2.32 km² | 791 |
 
-Target of the application is a Vantor scene at 0.349 m/px covering a later flood.
+The imagery is commercial and not in here. Point `TRISHULI_RAW` at it.
 
-Source imagery is not included. Set the paths and the notebooks will find it.
+What this should eventually run on is a Vantor scene at 0.349 m/px covering a
+later flood.
 
 ## Models
 
-| Model | Architecture | Pretrained on |
-|-------|--------------|---------------|
+| | Architecture | Pretrained on |
+|---|---|---|
 | Cellpose-SAM | ViT-L from SAM | ImageGrains 2.0 |
 | Mask R-CNN | ResNet-50 + FPN | BoulderNet |
 | Cellpose | U-Net | ImageGrains 1.0 |
 
-## Setup
+Three separate environments. `cellpose 2.x` and `cellpose 4.x` cannot be
+installed together, and Detectron2 wants its own torch build.
 
-Three environments, because the dependencies conflict. `cellpose 2.x` and
-`cellpose 4.x` cannot coexist, and Detectron2 pins its own torch build.
+## Setup
 
 ```bash
 python3 -m venv cellpose_sam_env
@@ -45,79 +47,85 @@ pip install -r requirements/cellpose_sam.txt
 python -m ipykernel install --user --name cellpose_sam --display-name "Cellpose-SAM"
 ```
 
-Detectron2 is not on PyPI and its `setup.py` imports torch, so build isolation
-has to be off:
+Detectron2 is not on PyPI, and its `setup.py` imports torch, so pip's build
+isolation has to be switched off or it fails with `No module named 'torch'`:
 
 ```bash
 pip install --no-build-isolation "git+https://github.com/facebookresearch/detectron2.git"
 ```
 
-Run one Jupyter Lab and pick the kernel per notebook.
+One Jupyter Lab, pick the kernel per notebook.
 
 ## Paths
 
-`config.py` reads two environment variables and falls back to per-OS defaults:
-
 ```bash
-export TRISHULI_RAW=/path/to/source/scenes
+export TRISHULI_RAW=/path/to/scenes
 export TRISHULI_DATA=/path/for/generated/data
 ```
 
-`config.check_paths()` fails early with a readable message if they are wrong.
+Otherwise `config.py` falls back to defaults per OS. `config.check_paths()`
+complains straight away if they are wrong, which saves you from a confusing
+rasterio error twenty cells later.
 
-## Usage
+## Notebooks
 
 ```
-01_prepare_data.ipynb    build the tile archive
-02_cellpose_sam.ipynb    fine-tune and evaluate
-03_maskrcnn.ipynb
-04_cellpose_unet.ipynb
-05_compare.ipynb         read results/*.json, compare
-06_vantor.ipynb          apply the winner
+01_prepare_data     build the tile archive
+02_cellpose_sam     fine-tune, evaluate
+03_maskrcnn
+04_cellpose_unet
+05_compare          read results/*.json
+06_vantor           run the winner on the new scene
 ```
 
-Prepare the data locally, then copy the archive to wherever the GPU is:
+Preparation runs locally since the source scenes are there. Then copy the
+archive to wherever the GPU is:
 
 ```bash
 rsync -av "$TRISHULI_DATA/archive/" server:/path/to/archive/
 ```
 
-## Repository layout
+## Layout
 
 ```
-config.py          paths and parameters, single source
-common/            runs in every environment, no torch
-  tiles.py         tile, label and corridor mask generation
-  folds.py         fold assignment along the valley axis
-  offset.py        co-registration model, used only for the corridor polygons
-requirements/      one file per environment
-results/           one json per run
+config.py          paths and parameters
+common/            no torch in here, so it runs in all three environments
+  tiles.py         tiling, label rasters, corridor masks
+  folds.py         splitting along the valley
+  offset.py        co-registration, only used for the corridor polygons
+requirements/
+results/
 ```
 
-## Design notes
+## A few things that are not obvious
 
-Each scene is tiled in its own coordinate system. The images are resampled to
-0.125 m/px but never warped onto a common grid, so the labels sit exactly where
-they were drawn and the data is interpolated once instead of twice.
+Scenes are tiled in their own coordinate systems. I resample to 0.125 m/px but
+do not warp anything onto a shared grid, so the labels end up exactly where I
+drew them and nothing gets interpolated twice. For training the scenes do not
+have to line up with each other.
 
-Tiles carry a corridor mask. Only about a third of a tile falls inside the mapped
-strip; the rest is hillside and forest that was never inspected, so it is not a
-valid negative. Pixels belonging to a labelled boulder are always marked valid,
-so no outline is ever partly ignored.
+Tiles carry a corridor mask. The river corridor is 26 km long and about 90 m
+wide, so square tiles cover it badly, only about a third of a tile is inside it.
+The rest is hillside and forest that nobody ever looked at, and treating that as
+background would teach the net to suppress boulders. Pixels inside a labelled
+outline are always marked valid, so an outline on the corridor edge is never
+half ignored.
 
-Folds are contiguous blocks along the valley, cut at the same absolute kilometres
-in every scene. Scene-relative splits would hit different ground in each scene,
-since the three reaches differ by several kilometres.
+Folds are contiguous blocks cut at the same absolute kilometres in every scene.
+Taking the last 20 % of each scene would hit different ground, since the three
+reaches differ by several kilometres.
 
-## Metric
+## Scoring
 
 ```
 AP = TP / (TP + FN + FP)   at IoU > 0.5
 ```
 
-Reported alongside D50 and D84 against the hand measurements. A model can count
-well and still measure badly, which matters here because the output is a grain
-size distribution.
+Plus D50 and D84 against the hand measurements. A model can count boulders well
+and still get their sizes wrong, and since the point of all this is a grain size
+distribution, that would be the worse failure.
+
+OrthoSAM at precision 0.16 is the bar.
 
 ## References
 

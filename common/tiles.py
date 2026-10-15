@@ -1,22 +1,15 @@
 """
-Tile and label generation.
+Cuts the scenes into tiles and burns the outlines into label rasters.
 
-Each scene is tiled in its own coordinate system. Images are resampled to the
-target resolution but never warped onto a common grid, so labels sit exactly
-where they were drawn and the data is interpolated once instead of twice. Only
-the corridor polygon is moved between systems.
+Each scene stays in its own coordinate system. I only resample to 0.125 m/px,
+I do not warp anything onto a common grid. Two reasons: the labels then sit
+exactly where I drew them, and the data gets interpolated once instead of
+twice. For training the scenes do not need to line up with each other anyway.
 
-Per tile we write:
+Per tile:
     <scene>_<col>_<row>.tif           image, uint16, raw values
-    <scene>_<col>_<row>_masks.tif     label raster, uint16, one id per boulder
-    <scene>_<col>_<row>_corridor.tif  uint8, 1 where the corridor was inspected
-
-About a third of a tile falls inside the mapped strip. The rest was never
-inspected, so it is neither labelled nor a valid negative, and training has to
-restrict crops to the corridor.
-
-Normalisation is applied on load, not baked in, so it stays a model parameter
-and can be reproduced on new scenes.
+    <scene>_<col>_<row>_masks.tif     label raster, one id per boulder
+    <scene>_<col>_<row>_corridor.tif  uint8, 1 where I actually looked
 """
 import json
 import numpy as np
@@ -35,7 +28,6 @@ from common import folds
 
 
 def corridor_in_scene(scene):
-    """corridor polygon, moved from november coordinates into the scene's own"""
     geom = gpd.read_file(config.corridor(scene)).to_crs(config.CRS).union_all()
     if scene == config.REFERENCE:
         return geom
@@ -43,14 +35,14 @@ def corridor_in_scene(scene):
 
 
 def grid(bounds, res=None, tile=None, overlap=None):
-    """tile origins on a fixed grid, stepping by the inner width"""
+    """tile origins, stepping by the inner width so the inner regions tile the area"""
     res = res or config.RES
     tile = tile or config.TILE
     overlap = overlap or config.OVERLAP
-    step = (tile - overlap) * res            # 192 m
-    size = tile * res                        # 256 m
-    pad = overlap * res / 2                  # half the border, so the inner
-    x0, y0, x1, y1 = bounds                  # regions cover the corridor
+    step = (tile - overlap) * res
+    size = tile * res
+    pad = overlap * res / 2
+    x0, y0, x1, y1 = bounds
     xs = np.arange(np.floor((x0 - pad) / step) * step, x1 + pad, step)
     ys = np.arange(np.floor((y0 - pad) / step) * step, y1 + pad, step)
     for j, y in enumerate(ys):
@@ -58,31 +50,28 @@ def grid(bounds, res=None, tile=None, overlap=None):
             yield i, j, (x, y, x + size, y + size)
 
 
-def read_window(src_path, bounds, size, res):
-    """read a window and resample it to size x size at the target resolution"""
+def read_window(src_path, bounds, size):
     with rasterio.open(src_path) as r:
         win = from_bounds(*bounds, transform=r.transform)
-        a = r.read(1, window=win, out_shape=(size, size),
-                   resampling=Resampling.bilinear,
-                   boundless=True, fill_value=0)
-    return a
+        return r.read(1, window=win, out_shape=(size, size),
+                      resampling=Resampling.bilinear,
+                      boundless=True, fill_value=0)
 
 
 def label_window(gdf, bounds, size, res):
-    """burn outlines into a label raster, one integer per boulder"""
     tr = from_origin(bounds[0], bounds[3], res, res)
     hit = gdf.iloc[list(gdf.sindex.query(box(*bounds), predicate="intersects"))]
     if len(hit) == 0:
         return np.zeros((size, size), np.uint16), 0
+    # ids start at 1, 0 stays background
     shapes = ((g, i) for i, g in enumerate(hit.geometry.values, start=1))
-    out = rasterize(shapes, out_shape=(size, size), transform=tr,
-                    fill=0, dtype=np.uint16)
+    out = rasterize(shapes, out_shape=(size, size), transform=tr, fill=0,
+                    dtype=np.uint16)
     return out, int(out.max())
 
 
 def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
                 min_diameter=None, verbose=True):
-    """write all tiles of one scene, return the index as a list of dicts"""
     out_dir = out_dir or config.ARCHIVE
     res = res or config.RES
     tile = tile or config.TILE
@@ -94,6 +83,9 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
     corr = corridor_in_scene(scene)
     prepare(corr)
 
+    # two versions of the same outlines: the scene's own system matches the
+    # image, the november one gives the station along the valley axis.
+    # same row order, I checked.
     own = gpd.read_file(config.OUTLINES / f"{scene}_bloecke.gpkg").to_crs(config.CRS)
     nov = gpd.read_file(config.outlines(scene)).to_crs(config.CRS)
     d = 2 * np.sqrt(own.area / np.pi)
@@ -101,7 +93,7 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
     own, nov = own[keep].reset_index(drop=True), nov[keep].reset_index(drop=True)
     own["fold"] = folds.label(folds.station_km(nov.geometry))
     own["d_m"] = d[keep].values
-    own.sindex                                     # build the index once
+    own.sindex
 
     index = []
     area = (tile * res) ** 2
@@ -110,11 +102,11 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
         if not intersects(corr, bx):
             continue
         share = corr.intersection(bx).area / area
-        if share < config.MIN_CORRIDOR:            # barely touches the strip
+        if share < config.MIN_CORRIDOR:
             continue
-        a = read_window(img, b, tile, res)
-        if (a > 0).mean() < 0.5:                   # mostly outside the image
-            continue
+        a = read_window(img, b, tile)
+        if (a > 0).mean() < 0.5:
+            continue                       # mostly outside the image footprint
         lab, n = label_window(own, b, tile, res)
 
         name = f"{scene}_{i:03d}_{j:03d}"
@@ -126,18 +118,19 @@ def build_scene(scene, out_dir=None, res=None, tile=None, overlap=None,
             w.write(a.astype(np.uint16), 1)
         with rasterio.open(out_dir / f"{name}_masks.tif", "w", dtype="uint16", **prof) as w:
             w.write(lab, 1)
-        # valid = inside the corridor OR belonging to a labelled boulder.
-        # the second part means a boulder straddling the corridor edge is
-        # never partly ignored - nothing is ever cut off.
+
         mask = rasterize([(corr.intersection(bx), 1)], out_shape=(tile, tile),
                          transform=tr, fill=0, dtype=np.uint8)
+        # a boulder sitting on the corridor edge would otherwise be half ignored
         mask |= (lab > 0).astype(np.uint8)
         with rasterio.open(out_dir / f"{name}_corridor.tif", "w", dtype="uint8", **prof) as w:
             w.write(mask, 1)
 
-        # fold of the tile: majority of its boulders, else by its centre
-        inner = box(b[0] + overlap * res / 2, b[1] + overlap * res / 2,
-                    b[2] - overlap * res / 2, b[3] - overlap * res / 2)
+        # fold of the tile: whatever most of its boulders say. empty tiles fall
+        # back to the station of their centre, good enough since there is
+        # nothing in them that could leak.
+        half = overlap * res / 2
+        inner = box(b[0] + half, b[1] + half, b[2] - half, b[3] - half)
         sel = own.iloc[list(own.sindex.query(inner, predicate="intersects"))]
         sel = sel[sel.geometry.centroid.within(inner)]
         if len(sel):

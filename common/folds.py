@@ -1,14 +1,17 @@
 """
-Fold assignment along the valley axis.
+Splits the data into folds along the river.
 
-Cuts are absolute kilometres, identical for every scene, so a given stretch of
-river is either training or validation in all of them. The two ends are always
-training because one scene is missing there.
+The cuts are absolute kilometres, the same in every scene. I first wanted to
+take the last 20 % of each scene, but that hits different ground: march runs
+0.2-24.7 km, november 0-26.2, february 7.7-26.2, so "last 20 %" starts at
+19.8, 20.9 and 22.5 km. Same stretch would be validation in one scene and
+training in another.
 
-Stations are computed from the outlines in NOVEMBER coordinates - that is the
-system the valley axis lives in. The per-scene files are row-aligned with the
-november ones, so the fold label transfers by position.
+Stations come from the outlines in november coordinates, because that is the
+system the valley axis is in. The per-scene files have the same row order, so
+the label carries over by position.
 """
+import collections
 import numpy as np
 import geopandas as gpd
 from shapely.ops import linemerge
@@ -23,14 +26,12 @@ def axis(path=None):
 
 
 def station_km(geoms, line=None):
-    """distance along the valley axis in km, for geometries in november coords"""
     line = line if line is not None else axis()
     cent = gpd.GeoSeries(geoms, crs=config.CRS).centroid.values
     return line_locate_point(line, cent) / 1000.0
 
 
 def label(station):
-    """fold label for one or many stations"""
     s = np.atleast_1d(np.asarray(station, float))
     out = np.full(s.shape, "", dtype=object)
 
@@ -44,18 +45,15 @@ def label(station):
         m = (s >= edges[i]) & (s < edges[i + 1]) & (out == "")
         out[m] = f"fold{i + 1}"
 
-    out[out == ""] = "always_train"       # anything beyond the defined ranges
+    out[out == ""] = "always_train"     # anything outside the defined ranges
     return out if out.size > 1 else out[0]
 
 
 def training_folds(validation_fold):
-    """which labels count as training when validating on `validation_fold`"""
     all_folds = [f"fold{i + 1}" for i in range(len(config.FOLD_EDGES) - 1)]
     return ["always_train"] + [f for f in all_folds if f != validation_fold]
 
 
 def summary(gdf_nov):
-    """count outlines per fold, for a gdf in november coordinates"""
-    import collections
     lab = label(station_km(gdf_nov.geometry))
     return dict(sorted(collections.Counter(lab).items()))
