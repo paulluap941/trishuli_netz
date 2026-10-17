@@ -38,6 +38,26 @@ later flood.
 Three separate environments. `cellpose 2.x` and `cellpose 4.x` cannot be
 installed together, and Detectron2 wants its own torch build.
 
+### Cellpose-SAM
+
+Crops come out of the archive at 384 px, cellpose takes its 256 px window from
+inside them. One crop per boulder plus background crops at 30 % of the boulder
+count, only at positions where the whole window is inspected ground.
+
+| | |
+|---|---|
+| epochs | 150 |
+| crops drawn per epoch | 250 |
+| batch | 1 |
+| learning rate | 1e-5 |
+| scale range | 0.5, so 0.75x to 1.25x |
+| contrast jitter | gain 0.8 to 1.25, offset -0.1 to 0.1 |
+| normalisation | p2/p98 per window, cellpose does it |
+| cellprob / flow threshold | 0.0 / 0.4 |
+
+Rotation, flipping and scaling come from cellpose. The contrast jitter is
+applied on top of them.
+
 ## Setup
 
 ```bash
