@@ -2,6 +2,7 @@
 numpy
 rasterio
 geopandas
+pandas
 shapely
 pyproj
 matplotlib

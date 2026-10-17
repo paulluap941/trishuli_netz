@@ -1,8 +1,8 @@
-# classic Cellpose (U-Net) / ImageGrains 1.0 - separate env,
+# classic Cellpose (U-Net) / ImageGrains 2.0 CNN - separate env,
 # cellpose 2.x and 4.x cannot coexist
 -r prep.txt
-torch==2.6.0
-torchvision==0.21.0
+# torch 2.6 flips torch.load to weights_only, which cellpose 2.3.2 does not set
+torch==2.5.1
 cellpose==2.3.2
-jupyterlab
+scikit-image
 ipykernel

@@ -33,10 +33,15 @@ later flood.
 |---|---|---|
 | Cellpose-SAM | ViT-L from SAM | ImageGrains 2.0 |
 | Mask R-CNN | ResNet-50 + FPN | BoulderNet |
-| Cellpose | U-Net | ImageGrains 1.0 |
+| Cellpose | U-Net | ImageGrains 2.0 |
 
 Three separate environments. `cellpose 2.x` and `cellpose 4.x` cannot be
 installed together, and Detectron2 wants its own torch build.
+
+Both pretrained cellpose models are from the ImageGrains 2.0 release on Zenodo,
+[doi:10.5281/zenodo.15728186](https://doi.org/10.5281/zenodo.15728186):
+`IG2_full_set_cp_SAM` for the transformer and `IG2_full_set.200525` for the CNN.
+Same training set, so the two runs differ only in the backbone.
 
 ### Cellpose-SAM
 
@@ -67,6 +72,13 @@ pip install -r requirements/cellpose_sam.txt
 python -m ipykernel install --user --name cellpose_sam --display-name "Cellpose-SAM"
 ```
 
+```bash
+python3 -m venv cellpose_unet_env
+source cellpose_unet_env/bin/activate
+pip install -r requirements/cellpose_unet.txt
+python -m ipykernel install --user --name cellpose_unet --display-name "Cellpose U-Net"
+```
+
 Detectron2 is not on PyPI, and its `setup.py` imports torch, so pip's build
 isolation has to be switched off or it fails with `No module named 'torch'`:
 
@@ -92,8 +104,8 @@ rasterio error twenty cells later.
 ```
 01_prepare_data     build the tile archive
 02_cellpose_sam     fine-tune, evaluate
-03_maskrcnn
-04_cellpose_unet
+03_cellpose_unet
+04_maskrcnn
 05_compare          read results/*.json
 06_vantor           run the winner on the new scene
 ```
