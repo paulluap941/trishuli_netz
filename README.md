@@ -32,7 +32,7 @@ later flood.
 | | Architecture | Pretrained on |
 |---|---|---|
 | Cellpose-SAM | ViT-L from SAM | ImageGrains 2.0 |
-| Mask R-CNN | ResNet-50 + FPN | BoulderNet |
+| Mask R-CNN | ResNet-50 + FPN | COCO |
 | Cellpose | U-Net | ImageGrains 2.0 |
 
 Three separate environments. `cellpose 2.x` and `cellpose 4.x` cannot be
@@ -62,6 +62,39 @@ count, only at positions where the whole window is inspected ground.
 
 Rotation, flipping and scaling come from cellpose. The contrast jitter is
 applied on top of them.
+
+### Cellpose
+
+The same crops and the same number of draws. Cellpose 2 would resize every crop
+to the 17 px diameter it was trained on, which needs more source pixels than a
+384 px crop has, so rescaling is off and the net is fine-tuned at the native
+35 px.
+
+| | |
+|---|---|
+| epochs | 150 |
+| crops drawn per epoch | 250 |
+| batch | 8 |
+| learning rate | 0.2 with SGD |
+| rescale | off |
+
+Cellpose 2 decays the learning rate only above 250 epochs and cellpose 4 above
+99, so the schedule of the Cellpose-SAM run is handed to it explicitly: warm up
+over ten epochs, hold, then halve ten times over the last fifty.
+
+### Mask R-CNN
+
+The same crops again. Detectron2 would resize them to its own training size, so
+the resizing is off and the crops keep their 0.125 m/px. Flipping is the only
+augmentation left once it is.
+
+| | |
+|---|---|
+| iterations | 18750, so 37500 crops |
+| batch | 2 |
+| learning rate | 0.0025, the 3x default scaled from batch 16 |
+| score threshold | 0.5 |
+| anchors | the standard sizes, 32 to 512 px |
 
 ## Setup
 
